@@ -57,7 +57,7 @@ def max_a_for_q(nA, env, state_t, q_table):
     selected_a = 0
     for a in range(nA):
         _, state_tp1 = predict_reward(
-            env, state_t, a
+            env.env, state_t, a
         )
         q = q_table[state_tp1, a]
         if q > max_qp1:
@@ -71,10 +71,13 @@ def choose_action(
         q_table:np.ndarray,
         state,
         gamma,
-        t
+        t,
+        i_episode,
+        episode_size
 ):
     nA = 6
-    thre = gamma ** t
+    thre = gamma ** (
+            t + i_episode * episode_size)
     if random.random() < thre:  # beginning of the game
         # random action
         return env.action_space.sample()
@@ -102,7 +105,7 @@ def update_q_table(
     # look for Q table
     for action in range(nA):
         reward_t, state_t = predict_reward(
-            env, observation, action
+            env.env, observation, action
         )
         # find max reward
         max_qp1, selected_a = max_a_for_q(nA, env, state_t, q_table)
@@ -120,7 +123,7 @@ def update_q_table(
     # [selected_action, max_reward] = sorted(reward_list, key=lambda x: x[1], reverse=True)[0]
 
 
-def main():
+def train():
     # env_name = 'MsPacman-v0'
     # env_name = 'CartPole-v1'
     env_name = 'Taxi-v2'
@@ -132,16 +135,17 @@ def main():
 
     # init an [action x status] Q-table
     q_table = np.zeros(shape=(status_dim, action_dim))
-    lr = 0.001
+    lr = 0.1
     gamma = 0.8
 
     # print(env.observation_space.high)
     # print(env.observation_space.low)
-    for i_episode in range(20):
+    for i_episode in range(3000):
         observation = env.reset()
-        for t in range(1000):
-            # env.render(mode='ansi')
-            env.render()
+        episode_size = 200
+        for t in range(episode_size):
+            env.render(mode='ansi')
+            # env.render()
             # print("observation:",
             #       observation)
             # choose action
@@ -152,7 +156,9 @@ def main():
                 q_table,
                 observation,
                 gamma,
-                t
+                t,
+                i_episode,
+                episode_size
             )
             # action = env.action_space.sample()
             # print("taking action [{}]".format(action))
@@ -162,9 +168,61 @@ def main():
             # print("getting reward [{}]".format(reward))
             # print(observation, reward, done, info)
             if done:
-                print("Episode finished after {} timestamps".format(t+1))
+                print("Episode[{}] finished after {} timestamps".format(i_episode, t+1))
                 break
+    np.save("./q_table", q_table)
 
+
+def test():
+    # env_name = 'MsPacman-v0'
+    # env_name = 'CartPole-v1'
+    env_name = 'Taxi-v2'
+    env = gym.make(env_name)
+    print(env.observation_space)
+    print(env.action_space)
+    status_dim = env.observation_space.n
+    action_dim = env.action_space.n
+
+    # init an [action x status] Q-table
+    q_table = np.load("./q_table.npy")
+    # gamma = 1
+    gamma = 0.8
+
+    # print(env.observation_space.high)
+    # print(env.observation_space.low)
+    observation = env.reset()
+    episode_size = 200
+    i_episode = 3000
+    for t in range(episode_size):
+        env.render(mode='human')
+        # env.render()
+        # print("observation:",
+        #       observation)
+        # choose action
+        action = choose_action(
+            env,
+            q_table,
+            observation,
+            gamma,
+            t,
+            i_episode,
+            episode_size
+        )
+        # action = env.action_space.sample()
+        # print("taking action [{}]".format(action))
+        observation, reward, done, info = \
+            env.step(action)
+        # print("info:", info)
+        # print("getting reward [{}]".format(reward))
+        # print(observation, reward, done, info)
+        if done:
+            print("Episode[{}] finished after {} timestamps".format(i_episode, t+1))
+            break
+
+
+def main():
+    test()
+    # train()
 
 if __name__ == "__main__":
     main()
